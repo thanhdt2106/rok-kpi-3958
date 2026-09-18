@@ -1,586 +1,427 @@
-# app3625.py
 import streamlit as st
 import pandas as pd
-import streamlit.components.v1 as components
-import requests
-import os
-import json
+import plotly.graph_objects as go
+from streamlit_searchbox import st_searchbox
 
-# ==============================================================================
-# 1. KHAI BÁO HÀM ĐỌC FILE
-# ==============================================================================
-def read_file(filename):
-    if os.path.exists(filename):
-        with open(filename, "r", encoding="utf-8") as f:
-            return f.read()
-    return ""
-
-# ==============================================================================
-# 2. CẤU HÌNH GIAO DIỆN CHUẨN ĐỒ HỌA HIGH-END UI (ĐÃ LÀM LẠI MÀU NÚT SIÊU ĐẸP)
-# ==============================================================================
+# --- 1. CẤU HÌNH TRANG & CẤU HÌNH BANNER ---
 st.set_page_config(page_title="FTD KPI SYSTEM", layout="wide", initial_sidebar_state="collapsed")
 
-# Inject CSS để ép Darkmode và thiết kế lại màu sắc 2 nút bấm cực sang
-st.markdown("""
-    <style>
-        /* ÉP TOÀN BỘ GIAO DIỆN HỆ THỐNG SANG DARK THEME (FIX LỖI TRÊN ĐIỆN THOẠI LIGHT MODE) */
-        html, body, [data-testid="stAppViewContainer"] {
-            background-color: #0d1117 !important;
-            color: #c9d1d9 !important;
-        }
+# Đường dẫn ảnh trang chủ từ GitHub của bạn:
+BANNER_URL = "https://raw.githubusercontent.com/thanhdt2106/rok-kpi-3956/2808e8f9ed167971c44b842ef91dde0c15ce86d8/meme2.png"
 
-        /* Ẩn triệt để các thành phần thừa của Streamlit */
-        #MainMenu, footer, header, [data-testid="stHeader"] {
-            visibility: hidden !important;
-            display: none !important;
-        }
-        
-        .block-container {
-            padding-top: 10px !important;
-            padding-bottom: 10px !important;
-            padding-left: 12px !important;
-            padding-right: 12px !important;
-            max-width: 100% !important;
-        }
-        
-        iframe {width: 100% !important; border: none;}
-        [data-testid="stSidebar"], [data-testid="stSidebarCollapseButton"] {display: none !important;}
-        
-        /* Hộp chọn ngôn ngữ tùy biến thích ứng thiết bị */
-        .lang-fixed-topright {
-            position: absolute;
-            top: 10px;
-            right: 15px;
-            width: 85px;
-            z-index: 999999;
-        }
+# --- 2. KHỞI TẠO SESSION STATE ---
+if 'lang' not in st.session_state:
+    st.session_state.lang = "VN"
 
-        /* KHU VỰC BOX WELCOME CINEMA - RESPONSIVE TỰ CO GIÃN THEO MÀN HÌNH */
-        .welcome-box-outer {
-            text-align: center;
-            padding: 40px 20px 35px 20px;
-            background: linear-gradient(180deg, #1f242c 0%, #0f1319 100%);
-            border-radius: 16px;
-            border: 1px solid #38444d;
-            margin: 40px auto 20px auto;
-            width: 100%;
-            max-width: 500px;
-            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.8);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            box-sizing: border-box;
-        }
-
-        /* Icon Động Vương Miện Neon */
-        .animated-icon-container {
-            margin-bottom: 10px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .crown-glow-ani {
-            width: 65px;
-            height: 65px;
-            fill: #ffaa00;
-            filter: drop-shadow(0 0 8px rgba(255, 170, 0, 0.6));
-            animation: pulseGlow 2.5s infinite ease-in-out;
-        }
-
-        @keyframes pulseGlow {
-            0% { transform: scale(1); filter: drop-shadow(0 0 6px rgba(255, 170, 0, 0.4)); opacity: 0.9; }
-            50% { transform: scale(1.06); filter: drop-shadow(0 0 18px rgba(255, 170, 0, 0.8)); opacity: 1; }
-            100% { transform: scale(1); filter: drop-shadow(0 0 6px rgba(255, 170, 0, 0.4)); opacity: 0.9; }
-        }
-
-        .welcome-box-outer h1 {
-            color: #ffaa00 !important; 
-            font-size: 28px !important;
-            font-weight: 800;
-            letter-spacing: 1.5px; 
-            margin-top: 5px;
-            margin-bottom: 0px;
-            text-shadow: 0 0 20px rgba(255, 170, 0, 0.35);
-        }
-
-        .welcome-box-outer p {
-            color: #8b949e !important; 
-            font-size: 12px !important;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-            margin-top: 10px;
-        }
-
-        /* KHU VỰC BỘ NÚT BẤM STREAMLIT CHỐNG TRÀN KHUNG */
-        .buttons-wrapper-inside {
-            width: 100%;
-            max-width: 500px;
-            margin: 0 auto;
-            padding: 0 5px;
-            box-sizing: border-box;
-        }
-
-        /* THIẾT KẾ ĐÈ TOÀN DIỆN LÊN NÚT BẤM (BẤT CHẤP THIẾT BỊ HOẶC HỆ ĐIỀU HÀNH) */
-        div[data-testid="stBlock"] button[key="btn_member_key"],
-        div[data-testid="stBlock"] button[key="btn_admin_key"] {
-            border: none !important;
-            outline: none !important;
-            padding: 14px 20px !important;
-            font-size: 13px !important;
-            font-weight: 700 !important;
-            text-transform: uppercase !important;
-            letter-spacing: 1px !important;
-            border-radius: 12px !important;
-            width: 100% !important;
-            min-height: 52px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            margin-bottom: 12px !important;
-        }
-
-        /* [Cải tiến] NÚT MEMBER - NỀN TỐI SANG TRỌNG, CHỮ CYAN NEON */
-        div[data-testid="stBlock"] button[key="btn_member_key"] {
-            background: #161b22 !important;
-            color: #58a6ff !important;
-            border: 1px solid #30363d !important;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
-        }
-        div[data-testid="stBlock"] button[key="btn_member_key"]:hover, 
-        div[data-testid="stBlock"] button[key="btn_member_key"]:active {
-            background: #58a6ff !important;
-            color: #0d1117 !important;
-            box-shadow: 0 0 25px rgba(88, 166, 255, 0.6) !important;
-            transform: translateY(-2px) !important;
-        }
-
-        /* [Cải tiến] NÚT ADMIN - NỀN VÀNG HỔ PHÁCH GLOW RỰC RỠ CHUẨN ĐỒ HỌA */
-        div[data-testid="stBlock"] button[key="btn_admin_key"] {
-            background: linear-gradient(135deg, #ffaa00 0%, #cc8800 100%) !important;
-            color: #0d1117 !important;
-            box-shadow: 0 4px 15px rgba(255, 170, 0, 0.25) !important;
-        }
-        div[data-testid="stBlock"] button[key="btn_admin_key"]:hover,
-        div[data-testid="stBlock"] button[key="btn_admin_key"]:active {
-            background: linear-gradient(135deg, #ffbb33 0%, #ffaa00 100%) !important;
-            color: #000000 !important;
-            box-shadow: 0 0 28px rgba(255, 170, 0, 0.65) !important;
-            transform: translateY(-2px) !important;
-        }
-
-        /* FIX RESPONSIVE TRÊN THIẾT BỊ DI ĐỘNG DỌC (MOBILE SCREEN) */
-        @media (max-width: 768px) {
-            .welcome-box-outer {
-                margin-top: 40px auto 15px auto;
-                padding: 30px 15px;
-            }
-            .welcome-box-outer h1 { font-size: 24px !important; }
-            /* Ép 2 nút xếp chồng lên nhau mượt mà trên mobile */
-            div[data-testid="stHorizontalBlock"] {
-                display: flex !important;
-                flex-direction: column !important;
-                gap: 0px !important;
-            }
-        }
-    </style>
-""", unsafe_allow_html=True)
-
-SHEET_ID = "15CrOFNFsIno34mX0EuXkLKdwiJgn3rrmcM-sEKmoKUQ"
-GID1 = "0"
-GID2 = "1325084102"
-
-# ==============================================================================
-# 3. KHỞI TẠO TRẠNG THÁI & TỪ ĐIỂN NGÔN NGỮ
-# ==============================================================================
-if "current_page" not in st.session_state:
-    st.session_state["current_page"] = "👋 CHÀO MỪNG"
-
-if "is_admin_verified" not in st.session_state:
-    st.session_state["is_admin_verified"] = False
-
-if "lang" not in st.session_state:
-    st.session_state["lang"] = "VN"
-
-if "selected_sheet_index" not in st.session_state:
-    st.session_state["selected_sheet_index"] = 0
-
-lang_dict = {
-    "VN": {
-        "title": "FTD KPI SYSTEM",
-        "select_role": "VUI LÒNG CHỌN VAI TRÒ ĐỂ TRUY CẬP HỆ THỐNG",
-        "btn_member": "👤 BẠN LÀ MEMBER",
-        "btn_admin": "🛡️ QUẢN TRỊ ADMIN",
-        "admin_title": "🛡️ KHU VỰC QUẢN TRỊ VIÊN",
-        "pass_placeholder": "Nhập mật khẩu Admin để mở khóa hệ thống...",
-        "pass_label": "Mật khẩu Admin:",
-        "login_success": "🔓 Xác thực thành công!",
-        "login_fail": "❌ Mật khẩu không chính xác!",
-        "select_sheet": "Chọn bảng tính cần thao tác:",
-        "edit_title": "📝 Chỉnh sửa dữ liệu trực tiếp tab:",
-        "save_btn": "💾 XÁC NHẬN LƯU VÀ ĐỒNG BỘ LÊN GOOGLE SHEETS",
-        "syncing": "🚀 Đang tiến hành đồng bộ hóa lên Google Sheets...",
-        "sync_success": "Thành công",
-        "sync_fail": "Thất bại từ hệ thống Sheets",
-        "conn_error": "Lỗi kết nối API Web App",
-        "menu_view_kpi": "📊 Chuyển sang Xem KPI",
-        "menu_logout": "↩️ Đăng xuất / Về màn hình chính",
-        "menu_back_admin": "⚙️ Quay lại trang Setting Admin",
-        "view_title_admin": "### 📊 CHẾ ĐỘ XEM TRƯỚC KPI THÀNH VIÊN",
-        "view_title_member": "### 📊 TRA CỨU KPI THÀNH VIÊN CORES",
-        "btn_back_welcome": "↩️ Quay lại Trang Đầu",
-        "sheet_err": "Lỗi đồng bộ cấu trúc dữ liệu bảng tính:",
-        "file_err": "Hệ thống không tìm thấy file style.css hoặc template.html tại thư mục gốc GitHub!",
-        "tip": "💡 Mẹo: Bạn có thể click đúp vào ô để sửa số liệu, hoặc kéo thả, thêm hàng ở dưới bảng."
-    },
-    "EN": {
-        "title": "FTD KPI SYSTEM",
-        "select_role": "PLEASE SELECT YOUR ROLE TO ACCESS THE SYSTEM",
-        "btn_member": "👤 I AM A MEMBER",
-        "btn_admin": "🛡️ ADMIN DASHBOARD",
-        "admin_title": "🛡️ ADMINISTRATOR PANEL",
-        "pass_placeholder": "Enter Admin password to unlock system...",
-        "pass_label": "Admin Password:",
-        "login_success": "🔓 Verification successful!",
-        "login_fail": "❌ Incorrect password!",
-        "select_sheet": "Select worksheet to manage:",
-        "edit_title": "📝 Direct data editor tab:",
-        "save_btn": "💾 CONFIRM SAVE AND SYNC TO GOOGLE SHEETS",
-        "syncing": "🚀 Synchronizing data to Google Sheets...",
-        "sync_success": "Success",
-        "sync_fail": "Failed from Sheets system",
-        "conn_error": "Web App API Connection Error",
-        "menu_view_kpi": "📊 Switch to KPI View",
-        "menu_logout": "↩️ Logout / Home Screen",
-        "menu_back_admin": "⚙️ Back to Admin Settings",
-        "view_title_admin": "### 📊 MEMBERS KPI PREVIEW MODE",
-        "view_title_member": "### 📊 CORES MEMBER KPI LOOKUP",
-        "btn_back_welcome": "↩️ Back to Home",
-        "sheet_err": "Worksheet structural synchronization error:",
-        "file_err": "System missing style.css or template.html in GitHub root!",
-        "tip": "💡 Tip: Double-click cells to edit data, drag-and-drop, or append new rows at the bottom."
-    }
+# --- 3. DỮ LIỆU PHIÊN DỊCH TOÀN DIỆN (ĐÃ DỊCH HẾT SANG ANH) ---
+TEXTS = {
+    "VN": {
+        "header": "HỆ THỐNG KPI - SHARED HOUSE 3956",
+        "tab1": "👤 HỒ SƠ CHI TIẾT", 
+        "tab2": "📊 TỔNG QUAN QUÂN ĐOÀN",
+        "placeholder": "🔍 Nhập tên hoặc ID để tìm kiếm chiến binh...",
+        "rank": "🏆 HẠNG", 
+        "power_now": "🛡️ SỨC MẠNH (GID 1)", 
+        "kpi_kill_pct": "🔥 % KILL", 
+        "kpi_dead_pct": "💀 % DEAD",
+        "detail_title": "📌 XEM THÔNG SỐ CHI TIẾT", 
+        "general_stats": "📊 THÔNG SỐ TỔNG QUÁT",
+        "kill_stats": "⚔️ ĐIỂM TIÊU DIỆT MÙA GIẢI (T4 + T5)",
+        "dead_stats": "💀 ĐIỂM TỬ VONG CHI TIẾT TRONG MÙA GIẢI (GID 2 - GID 1)",
+        "col_rank": "HẠNG 🏆", 
+        "col_name": "CHIẾN BINH 🥷", 
+        "col_alliance": "LIÊN MINH 🛡️", 
+        "col_power": "SỨC MẠNH 🛡️",
+        "col_kill": "TOTAL KILL ⚔️", 
+        "col_kpi_kill": "KPI KILL 🔥", 
+        "col_dead": "SEASON DEAD 💀", 
+        "col_kpi_dead": "KPI DEAD ⚰️",
+        "id_label": "ID nhân vật", 
+        "name_label": "Tên Người Dùng",
+        "power_label": "Sức Mạnh",
+        "season_dead_label": "Season Dead",
+        "season_kill_label": "Điểm Tiêu Diệt Mùa Giải (T4+T5)",
+        "dead_season_suffix": "(Mùa giải)",
+        "kill_achieved_label": "KILL ĐẠT",
+        "required_label": "Cần đạt",
+        "dead_achieved_label": "DEAD",
+        "pass_kpi": "✅ ĐẠT CHỈ TIÊU (>60%K HOẶC >100%D)", 
+        "fail_kpi": "⚠️ CHƯA ĐẠT CHỈ TIÊU",
+        "search_hint": "💡 Vui lòng tìm kiếm tên hoặc ID chiến binh ở khung phía trên.",
+        "load_error": "Lỗi tải dữ liệu: "
+    },
+    "EN": {
+        "header": "KPI SYSTEM - SHARED HOUSE 3956",
+        "tab1": "👤 DETAILED PROFILE", 
+        "tab2": "📊 ALLIANCE OVERVIEW",
+        "placeholder": "🔍 Type name or ID to search warrior...",
+        "rank": "🏆 RANK", 
+        "power_now": "🛡️ POWER (GID 1)", 
+        "kpi_kill_pct": "🔥 % KILL", 
+        "kpi_dead_pct": "💀 % DEAD",
+        "detail_title": "📌 VIEW FULL STATISTICS", 
+        "general_stats": "📊 GENERAL STATISTICS",
+        "kill_stats": "⚔️ SEASON KILL POINTS (T4 + T5)",
+        "dead_stats": "💀 SEASON DETAILED DEAD (GID 2 - GID 1)",
+        "col_rank": "RANK 🏆", 
+        "col_name": "COMMANDER 🥷", 
+        "col_alliance": "ALLIANCE 🛡️", 
+        "col_power": "POWER 🛡️",
+        "col_kill": "TOTAL KILL ⚔️", 
+        "col_kpi_kill": "KPI KILL 🔥", 
+        "col_dead": "SEASON DEAD 💀", 
+        "col_kpi_dead": "KPI DEAD ⚰️",
+        "id_label": "Character ID", 
+        "name_label": "Username",
+        "power_label": "Power",
+        "season_dead_label": "Season Dead",
+        "season_kill_label": "Season Kill Points (T4+T5)",
+        "dead_season_suffix": "(Season)",
+        "kill_achieved_label": "KILL ACHIEVED",
+        "required_label": "Required",
+        "dead_achieved_label": "DEAD",
+        "pass_kpi": "✅ PASSED (>60%K OR >100%D)", 
+        "fail_kpi": "⚠️ INCOMPLETE",
+        "search_hint": "💡 Please search for a warrior's name or ID in the box above.",
+        "load_error": "Data loading error: "
+    }
 }
 
-T = lang_dict[st.session_state["lang"]]
+# --- 4. CALLBACKS ---
+def change_lang_callback():
+    st.session_state.lang = st.session_state.lang_radio_key
 
-def load_csv_data(gid):
-    url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={gid}"
-    df = pd.read_csv(url, dtype=str)
-    df.columns = df.columns.str.strip()
-    return df
+L = TEXTS[st.session_state.lang]
 
-def get_kpi_kill_value(p):
-    try: p = int(p)
-    except: p = 0
-    if p >= 100_000_000: return 600_000_000
-    elif p >= 80_000_000: return 450_000_000
-    return 300_000_000
+# --- 5. CSS CUSTOM NÂNG CAO & RESPONSIVE ---
+st.markdown("""
+    <style>
+    header[data-testid="stHeader"] {display: none !important;}
+    .stApp { background-color: #0b0f19; color: #e6edfd; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    
+    .banner-container {
+        width: 100%;
+        max-height: 500px;
+        overflow: hidden;
+        border-radius: 14px;
+        margin-top: 20px;
+        margin-bottom: 15px;
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+    .banner-container img {
+        width: 100%;
+        height: 500px;
+        object-fit: cover;
+    }
 
-def get_kpi_dead_value(p):
-    try: p = int(p)
-    except: p = 0
-    if p >= 100_000_000: return 1_500_000
-    elif p >= 90_000_000: return 1_200_000
-    elif p >= 80_000_000: return 1_000_000
-    elif p >= 70_000_000: return 800_000
-    elif p >= 60_000_000: return 700_000
-    elif p >= 50_000_000: return 600_000
-    elif p >= 40_000_000: return 500_000
-    elif p >= 30_000_000: return 400_000
-    else: return 300_000
+    .main-header { 
+        background: linear-gradient(135deg, #00ffff 0%, #3b82f6 50%, #8b5cf6 100%); 
+        -webkit-background-clip: text; 
+        -webkit-text-fill-color: transparent; 
+        text-align: center; 
+        font-size: clamp(20px, 4vw, 36px); 
+        font-weight: 800; 
+        padding: 5px 0 15px 0;
+        letter-spacing: 0.5px;
+    }
 
-def on_sheet_change():
-    if "Bảng 1" in st.session_state["sheet_select_key"] or "Base KPI" in st.session_state["sheet_select_key"]:
-        st.session_state["selected_sheet_index"] = 0
-    else:
-        st.session_state["selected_sheet_index"] = 1
+    .info-box { 
+        background: linear-gradient(145deg, #131b2e, #0f172a); 
+        border: 1px solid rgba(59, 130, 246, 0.2); 
+        border-radius: 12px; 
+        padding: 12px 8px; 
+        text-align: center; 
+        margin-bottom: 10px; 
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .info-box:hover {
+        border-color: rgba(0, 255, 255, 0.4);
+        transform: translateY(-2px);
+    }
+    .info-label { 
+        color: #94a3b8; 
+        font-size: 11px; 
+        font-weight: 700; 
+        text-transform: uppercase; 
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+    }
+    .info-value { 
+        color: #f8fafc; 
+        font-size: clamp(14px, 2vw, 18px); 
+        font-weight: 800; 
+    }
 
-# ==============================================================================
-# 4. ĐIỀU HƯỚNG GIAO DIỆN CHÍNH
-# ==============================================================================
+    .gauge-footer { 
+        color: #38bdf8; 
+        font-size: 12px; 
+        font-weight: 700; 
+        text-align: center; 
+        margin-top: -25px;
+        background: rgba(15, 23, 42, 0.6);
+        padding: 4px;
+        border-radius: 6px;
+    }
 
-# ─── TRANG 1: MÀN HÌNH CHÀO MỪNG ───
-if st.session_state["current_page"] == "👋 CHÀO MỪNG":
-    # Hộp chọn ngôn ngữ ở góc trên bên phải
-    st.markdown('<div class="lang-fixed-topright">', unsafe_allow_html=True)
-    lang_choice = st.selectbox("🌐", ["VN", "EN"], index=0 if st.session_state["lang"] == "VN" else 1, label_visibility="collapsed")
-    if lang_choice != st.session_state["lang"]:
-        st.session_state["lang"] = lang_choice
-        st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
+    .status-list { 
+        background: #111827; 
+        border-radius: 12px; 
+        padding: 15px; 
+        border: 1px solid rgba(255, 255, 255, 0.08); 
+        height: 380px; 
+        overflow-y: auto; 
+        box-shadow: inset 0 2px 6px rgba(0,0,0,0.4);
+    }
+    .status-item {
+        padding: 8px 10px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+    }
 
-    # Box Cinema với Vector SVG Vương miện nhấp nháy phát sáng Neon
-    st.markdown(f"""
-        <div class="welcome-box-outer">
-            <div class="animated-icon-container">
-                <svg class="crown-glow-ani" viewBox="0 0 24 24">
-                    <path d="M5 16L3 5L8.5 10L12 4L15.5 10L21 5L19 16H5M19 19C19 19.6 18.6 20 18 20H6C5.4 20 5 19.6 5 19V18H19V19Z" />
-                </svg>
-            </div>
-            <h1>{T['title']}</h1>
-            <div style="height: 2px; background: linear-gradient(90deg, transparent, #ffaa00, transparent); max-width: 280px; margin: 15px auto 5px auto;"></div>
-            <p>{T['select_role']}</p>
-        </div>
-    """, unsafe_allow_html=True)
+    div[data-testid="stSearchbox"] input { 
+        background-color: #111827 !important; 
+        color: #ffffff !important; 
+        border: 1px solid rgba(59, 130, 246, 0.4) !important; 
+        border-radius: 10px !important; 
+        padding: 8px 12px !important;
+    }
+    
+    .stTabs [data-baseweb="tab-list"] { gap: 8px; justify-content: center; }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #131b2e;
+        border-radius: 8px 8px 0 0;
+        color: #94a3b8;
+        font-weight: 700;
+        padding: 10px 20px;
+        border: 1px solid rgba(255,255,255,0.05);
+    }
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #1e3a8a, #1e293b);
+        color: #38bdf8 !important;
+        border-color: rgba(56, 189, 248, 0.4) !important;
+    }
 
-    # Khung chứa bộ nút bấm của Streamlit (Tự động chuyển thành hàng dọc trên Mobile)
-    st.markdown('<div class="buttons-wrapper-inside">', unsafe_allow_html=True)
-    btn_col1, btn_col2 = st.columns([1, 1])
-    with btn_col1:
-        if st.button(T['btn_member'], key="btn_member_key", use_container_width=True):
-            st.session_state["current_page"] = "📊 TRANG CHỦ KPI"
-            st.rerun()
-            
-    with btn_col2:
-        if st.button(T['btn_admin'], key="btn_admin_key", use_container_width=True):
-            st.session_state["current_page"] = "⚙️ QUẢN TRỊ ADMIN"
-            st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
+    @media (max-width: 768px) {
+        .banner-container { max-height: 140px; }
+        .banner-container img { height: 140px; }
+        .info-box { padding: 8px 4px; min-height: 60px; }
+        .info-value { font-size: 13px; }
+        .main-header { font-size: 18px; }
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-# ─── TRANG 2: TRANG CHỈNH SỬA ADMIN ───
-elif st.session_state["current_page"] == "⚙️ QUẢN TRỊ ADMIN":
-    st.markdown('<div style="background: linear-gradient(135deg, #161b22 0%, #0d1117 100%); padding: 15px 25px; border-radius: 12px; border: 1px solid #30363d; margin: 15px 15px 25px 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">', unsafe_allow_html=True)
-    m_col1, m_col2, m_col3, m_col4 = st.columns([3.5, 2, 2.5, 2])
-    with m_col1: 
-        st.markdown(f"### {T['admin_title']}")
-    with m_col2:
-        if st.button(T["menu_view_kpi"], use_container_width=True):
-            st.session_state["current_page"] = "📊 TRANG CHỦ KPI"
-            st.rerun()
-    with m_col3:
-        if st.button(T["menu_logout"], use_container_width=True):
-            st.session_state["is_admin_verified"] = False
-            st.session_state["current_page"] = "👋 CHÀO MỪNG"
-            st.rerun()
-    with m_col4:
-        lang_choice = st.selectbox("🌐", ["VN", "EN"], index=0 if st.session_state["lang"] == "VN" else 1, label_visibility="collapsed")
-        if lang_choice != st.session_state["lang"]:
-            st.session_state["lang"] = lang_choice
-            st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
+# --- 6. DATA ENGINE ---
+@st.cache_data(ttl=5)
+def load_data():
+    try:
+        sheet_id = "1ylmO5olorIhdgKgejmTRftSLSe6zXXkYn4tYXTCtTSg"
+        gid1 = "568389539"
+        gid2 = "1577480214"
+        
+        url1 = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid1}'
+        url2 = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid2}'
+        
+        df1 = pd.read_csv(url1)
+        df2 = pd.read_csv(url2)
+        
+        df1.columns = [str(c).strip() for c in df1.columns]
+        df2.columns = [str(c).strip() for c in df2.columns]
+        
+        c_id = "ID"
+        c_name = "Tên"
+        c_alliance = "Liên Minh"
+        
+        c_pow = next((c for c in df1.columns if "sức mạnh" in c.lower() or "power" in c.lower()), "Sức Mạnh")
+        c_kill = next((c for c in df1.columns if "tiêu" in c.lower() or "kill" in c.lower()), "Tổng Tiêu Điệt")
+        
+        dead_cols = ['T1', 'T2', 'T3', 'T4', 'T5']
+        
+        df1[c_id] = df1[c_id].astype(str).str.strip()
+        df2[c_id] = df2[c_id].astype(str).str.strip()
+        
+        merged = pd.merge(df2, df1, on=c_id, suffixes=('_2', '_1'))
+        
+        df = pd.DataFrame()
+        df[c_id] = merged[c_id]
+        df[c_name] = merged[c_name + '_2']
+        df[c_alliance] = merged[c_alliance + '_2'] if c_alliance + '_2' in merged.columns else ""
+        
+        df[c_pow] = pd.to_numeric(merged[c_pow + '_1'], errors='coerce').fillna(0)
+        df['TOTAL_KILL'] = pd.to_numeric(merged.get(c_kill + '_2', 0), errors='coerce').fillna(0)
+        
+        for col in dead_cols:
+            val_2 = pd.to_numeric(merged.get(col + '_2', 0), errors='coerce').fillna(0)
+            val_1 = pd.to_numeric(merged.get(col + '_1', 0), errors='coerce').fillna(0)
+            df[col] = val_2 - val_1
+            
+        df['TOTAL_DEAD'] = df[dead_cols].sum(axis=1)
+        
+        kill_t4_col = next((c for c in df1.columns if "t4" in c.lower() and ("kill" in c.lower() or "tiêu" in c.lower())), None)
+        kill_t5_col = next((c for c in df1.columns if "t5" in c.lower() and ("kill" in c.lower() or "tiêu" in c.lower())), None)
+        
+        if kill_t4_col and kill_t5_col:
+            df['SEASON_KILL'] = (pd.to_numeric(merged[kill_t4_col + '_2'], errors='coerce').fillna(0) - pd.to_numeric(merged[kill_t4_col + '_1'], errors='coerce').fillna(0)) + \
+                                (pd.to_numeric(merged[kill_t5_col + '_2'], errors='coerce').fillna(0) - pd.to_numeric(merged[kill_t5_col + '_1'], errors='coerce').fillna(0))
+        else:
+            df['SEASON_KILL'] = pd.to_numeric(merged.get(c_kill + '_2', 0), errors='coerce').fillna(0) - pd.to_numeric(merged.get(c_kill + '_1', 0), errors='coerce').fillna(0)
 
-    if not st.session_state["is_admin_verified"]:
-        st.markdown('<div style="padding: 0 15px;">', unsafe_allow_html=True)
-        admin_password = st.text_input(T["pass_label"], type="password", placeholder=T["pass_placeholder"])
-        if admin_password:
-            try: target_pass = st.secrets["admin"]["password"]
-            except KeyError:
-                target_pass = "123"
-                st.warning("⚠️ Chưa phát hiện cấu hình Secrets trên Cloud. Đang dùng pass tạm: 123")
+        df['TARGET_KILL'] = df[c_pow] * 3
+        df['K_PCT'] = ((df['SEASON_KILL'] / df['TARGET_KILL']) * 100).fillna(0).round(1)
+        
+        def get_dead_target(pow_val):
+            if pow_val >= 50_000_000:
+                return 600_000
+            elif pow_val >= 40_000_000:
+                return 500_000
+            elif pow_val >= 30_000_000:
+                return 400_000
+            else:
+                return 250_000
 
-            if admin_password == target_pass:
-                st.session_state["is_admin_verified"] = True
-                st.success(T["login_success"])
-                st.rerun()
-            else:
-                st.error(T["login_fail"])
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    if st.session_state["is_admin_verified"]:
-        st.markdown('<div style="padding: 0 15px;">', unsafe_allow_html=True)
-        sheet_options = [
-            "Bảng 1: KPI Gốc (0)" if st.session_state["lang"] == "VN" else "Table 1: Base KPI (0)", 
-            "Bảng 2: Cập Nhật Mới (1325084102)" if st.session_state["lang"] == "VN" else "Table 2: New Update (1325084102)"
-        ]
-        
-        st.selectbox(
-            T["select_sheet"], 
-            sheet_options, 
-            index=st.session_state["selected_sheet_index"],
-            key="sheet_select_key",
-            on_change=on_sheet_change
-        )
-        
-        if st.session_state["selected_sheet_index"] == 0:
-            target_gid = GID1
-            worksheet_name = "Sheet1"  
-        else:
-            target_gid = GID2
-            worksheet_name = "Sheet2"  
-            
-        df_to_edit = load_csv_data(target_gid)
-        
-        st.markdown(f"#### {T['edit_title']} `{worksheet_name}`")
-        st.info(T["tip"])
-        edited_df = st.data_editor(df_to_edit, num_rows="dynamic", use_container_width=True)
-        
-        if st.button(T["save_btn"]):
-            header = edited_df.columns.tolist()
-            matrix_data = [header] + edited_df.fillna("").values.tolist()
-            payload = {"worksheet": worksheet_name, "data": matrix_data}
-            
-            with st.spinner(T["syncing"]):
-                try:
-                    try: app_url = st.secrets["api"]["app_url"]
-                    except KeyError: app_url = ""
-                    response = requests.post(app_url, json=payload)
-                    res_json = response.json()
-                    
-                    if res_json.get("status") == "success":
-                        st.balloons()
-                        st.success(f"{T['sync_success']}: {res_json.get('message')}")
-                        st.cache_data.clear()
-                    else:
-                        st.error(f"{T['sync_fail']}: {res_json.get('message')}")
-                except Exception as e:
-                    st.error(f"{T['conn_error']}: {e}")
-        st.markdown('</div>', unsafe_allow_html=True)
+        df['TARGET_DEAD'] = df[c_pow].apply(get_dead_target)
+        df['D_PCT'] = ((df['TOTAL_DEAD'] / df['TARGET_DEAD']) * 100).fillna(0).round(1)
+        
+        df = df.sort_values(by='K_PCT', ascending=False).reset_index(drop=True)
+        df.insert(0, 'H_RAW', range(1, len(df) + 1))
+        df['Full_Search'] = df[c_name].astype(str) + " (ID: " + df[c_id].astype(str) + ")"
+        
+        return df, c_id, c_name, c_alliance, c_pow, dead_cols
+    except Exception as e:
+        st.error(f"{TEXTS[st.session_state.lang]['load_error']}{e}")
+        return None
 
-# ─── TRANG 3: TRANG CHỦ XEM CARDS KPI CỦA THÀNH VIÊN ───
-elif st.session_state["current_page"] == "📊 TRANG CHỦ KPI":
-    if st.session_state["is_admin_verified"]:
-        st.markdown('<div style="background: linear-gradient(135deg, #161b22 0%, #0d1117 100%); padding: 15px 25px; border-radius: 12px; border: 1px solid #30363d; margin: 15px 15px 25px 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">', unsafe_allow_html=True)
-        u_col1, u_col2, u_col3 = st.columns([6, 2, 1])
-        with u_col1: st.markdown(T["view_title_admin"])
-        with u_col2:
-            if st.button(T["menu_back_admin"], use_container_width=True, type="primary"):
-                st.session_state["current_page"] = "⚙️ QUẢN TRỊ ADMIN"
-                st.rerun()
-        with u_col3:
-            lang_choice = st.selectbox("🌐", ["VN", "EN"], index=0 if st.session_state["lang"] == "VN" else 1, label_visibility="collapsed")
-            if lang_choice != st.session_state["lang"]:
-                st.session_state["lang"] = lang_choice
-                st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-    else:
-        st.markdown('<div style="background: linear-gradient(135deg, #161b22 0%, #0d1117 100%); padding: 15px 25px; border-radius: 12px; border: 1px solid #30363d; margin: 15px 15px 25px 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">', unsafe_allow_html=True)
-        m_c1, m_c2, m_c3 = st.columns([6, 2, 1])
-        with m_c1: st.markdown(T["view_title_member"])
-        with m_c2:
-            if st.button(T["btn_back_welcome"], use_container_width=True):
-                st.session_state["current_page"] = "👋 CHÀO MỪNG"
-                st.rerun()
-        with m_c3:
-            lang_choice = st.selectbox("🌐", ["VN", "EN"], index=0 if st.session_state["lang"] == "VN" else 1, label_visibility="collapsed")
-            if lang_choice != st.session_state["lang"]:
-                st.session_state["lang"] = lang_choice
-                st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+res = load_data()
 
-    @st.cache_data(ttl=60)
-    def process_cards_data():
-        df1 = load_csv_data(GID1)
-        df2 = load_csv_data(GID2)
+if res:
+    df, c_id, c_name, c_alliance, c_pow, dead_cols = res
+    options_list = df['Full_Search'].tolist()
 
-        def to_int(x):
-            try: return int(str(x).replace(",", ""))
-            except: return 0
+    def search_warriors(search_term: str):
+        if search_term is None: 
+            return []
+        term = str(search_term).lower()
+        return [opt for opt in options_list if term in str(opt).lower()][:10]
 
-        def find_col(df, keywords):
-            for col in df.columns:
-                if all(k.lower() in col.lower() for k in keywords):
-                    return col
-            return None
+    # --- HIỂN THỊ TIÊU ĐỀ Ở PHẦN TRÊN ---
+    st.markdown(f'<div class="main-header">{L["header"]}</div>', unsafe_allow_html=True)
+    
+    col_lang, col_search = st.columns([1, 4])
+    with col_lang:
+        st.radio("L", ["VN", "EN"], index=0 if st.session_state.lang == "VN" else 1, 
+                 key="lang_radio_key", on_change=change_lang_callback, horizontal=True, label_visibility="collapsed")
+    
+    with col_search:
+        choice = st_searchbox(search_warriors, placeholder=L["placeholder"], key="warrior_search_box", label=None)
 
-        col_pow = find_col(df2, ["sức", "mạnh"]) or "Sức Mạnh"
-        col_kill = find_col(df2, ["tổng", "tiêu", "diệt"]) or find_col(df2, ["kill"]) or "Tổng Tiêu Diệt"
-        col_dead = find_col(df2, ["chết"]) or "Điểm Chết"
-        col_t4, col_t5 = "T4", "T5"
+    tab1, tab2 = st.tabs([L["tab1"], L["tab2"]])
+    
+    with tab1:
+        if choice:
+            d = df[df['Full_Search'] == choice].iloc[0]
+            m1, m2, m3, m4 = st.columns(4)
+            m1.markdown(f'<div class="info-box"><div class="info-label">{L["rank"]}</div><div class="info-value" style="color:#fbbf24;">#{int(d["H_RAW"])}</div></div>', unsafe_allow_html=True)
+            m2.markdown(f'<div class="info-box"><div class="info-label">{L["power_now"]}</div><div class="info-value">{int(d[c_pow]):,}</div></div>'.replace(",", "."), unsafe_allow_html=True)
+            m3.markdown(f'<div class="info-box"><div class="info-label">{L["kpi_kill_pct"]}</div><div class="info-value" style="color:#22d3ee;">{d["K_PCT"]}%</div></div>', unsafe_allow_html=True)
+            m4.markdown(f'<div class="info-box"><div class="info-label">{L["kpi_dead_pct"]}</div><div class="info-value" style="color:#fb923c;">{d["D_PCT"]}%</div></div>', unsafe_allow_html=True)
+            
+            with st.expander(L["detail_title"], expanded=False):
+                st.markdown(f"**{L['general_stats']}**")
+                c_cols = st.columns(5)
+                c_cols[0].markdown(f'<div class="info-box"><div class="info-label">ID</div><div class="info-value">{d[c_id]}</div></div>', unsafe_allow_html=True)
+                c_cols[1].markdown(f'<div class="info-box"><div class="info-label">{L["name_label"]}</div><div class="info-value">{d[c_name]}</div></div>', unsafe_allow_html=True)
+                c_cols[2].markdown(f'<div class="info-box"><div class="info-label">{L["power_label"]}</div><div class="info-value">{int(d[c_pow]):,}</div></div>'.replace(",", "."), unsafe_allow_html=True)
+                c_cols[3].markdown(f'<div class="info-box"><div class="info-label">Total Kill</div><div class="info-value">{int(d["TOTAL_KILL"]):,}</div></div>'.replace(",", "."), unsafe_allow_html=True)
+                c_cols[4].markdown(f'<div class="info-box"><div class="info-label">{L["season_dead_label"]}</div><div class="info-value">{int(d["TOTAL_DEAD"]):,}</div></div>'.replace(",", "."), unsafe_allow_html=True)
+                
+                st.write("---")
+                st.markdown(f"**{L['kill_stats']}**")
+                st.markdown(f'<div class="info-box"><div class="info-label">{L["season_kill_label"]}</div><div class="info-value">{int(d["SEASON_KILL"]):,}</div></div>'.replace(",", "."), unsafe_allow_html=True)
+                
+                st.markdown(f"**{L['dead_stats']}**")
+                d_cols_ui = st.columns(len(dead_cols))
+                for i, col in enumerate(dead_cols):
+                    d_cols_ui[i].markdown(f'<div class="info-box"><div class="info-label">{col} {L["dead_season_suffix"]}</div><div class="info-value">{int(d[col]):,}</div></div>'.replace(",", "."), unsafe_allow_html=True)
 
-        df1["ID_str"] = df1["ID"].astype(str).str.strip()
-        df2["ID_str"] = df2["ID"].astype(str).str.strip()
+            g1, g2 = st.columns(2)
+            with g1:
+                fig_k = go.Figure(go.Indicator(
+                    mode="gauge+number", 
+                    value=d['K_PCT'], 
+                    number={'suffix': "%", 'font':{'size':22, 'color': '#ffffff'}}, 
+                    gauge={
+                        'bar': {'color': "#22d3ee"}, 
+                        'axis': {'range': [0, max(100, d['K_PCT'])], 'tickcolor': "#94a3b8"},
+                        'bgcolor': "#1e293b",
+                        'borderwidth': 0
+                    }
+                ))
+                fig_k.update_layout(height=190, margin=dict(l=10,r=10,t=35,b=10), paper_bgcolor="rgba(0,0,0,0)", font={'color': "white"})
+                st.plotly_chart(fig_k, use_container_width=True, config={'displayModeBar': False})
+                
+                actual_k = f"{d['SEASON_KILL']:,.0f}".replace(",", ".")
+                target_k = f"{d['TARGET_KILL']:,.0f}".replace(",", ".")
+                st.markdown(f'<div class="gauge-footer">{L["kill_achieved_label"]}: {actual_k} / {L["required_label"]}: {target_k}</div>', unsafe_allow_html=True)
 
-        name_sheet2 = df2.set_index("ID_str")["Tên"].to_dict()
-        pow_sheet2 = df2.set_index("ID_str")[col_pow].to_dict()
-        kill_sheet2 = df2.set_index("ID_str")[col_kill].to_dict()
-        dead_sheet2 = df2.set_index("ID_str")[col_dead].to_dict()
-        
-        t4_sheet1 = df1.set_index("ID_str")[col_t4].to_dict() if col_t4 in df1.columns else {}
-        t5_sheet1 = df1.set_index("ID_str")[col_t5].to_dict() if col_t5 in df1.columns else {}
-        t4_sheet2 = df2.set_index("ID_str")[col_t4].to_dict() if col_t4 in df2.columns else {}
-        t5_sheet2 = df2.set_index("ID_str")[col_t5].to_dict() if col_t5 in df2.columns else {}
+            with g2:
+                fig_d = go.Figure(go.Indicator(
+                    mode="gauge+number", 
+                    value=d['D_PCT'], 
+                    number={'suffix': "%", 'font':{'size':22, 'color': '#ffffff'}}, 
+                    gauge={
+                        'bar': {'color': "#fb923c"}, 
+                        'axis': {'range': [0, max(100, d['D_PCT'])], 'tickcolor': "#94a3b8"},
+                        'bgcolor': "#1e293b",
+                        'borderwidth': 0
+                    }
+                ))
+                fig_d.update_layout(height=190, margin=dict(l=10,r=10,t=35,b=10), paper_bgcolor="rgba(0,0,0,0)", font={'color': "white"})
+                st.plotly_chart(fig_d, use_container_width=True, config={'displayModeBar': False})
+                
+                actual_d = f"{d['TOTAL_DEAD']:,.0f}".replace(",", ".")
+                target_d = f"{d['TARGET_DEAD']:,.0f}".replace(",", ".")
+                st.markdown(f'<div class="gauge-footer">{L["dead_achieved_label"]}: {actual_d} / {L["required_label"]}: {target_d}</div>', unsafe_allow_html=True)
+        else:
+            st.info(L["search_hint"])
 
-        col_dead_s1 = find_col(df1, ["chết"]) or "Điểm Chết"
-        df1["Power_Goc"] = df1[find_col(df1, ["sức", "mạnh"]) or "Sức Mạnh"].apply(to_int)
-        df1['Indiv_KPI_Dead'] = df1['Power_Goc'].apply(get_kpi_dead_value)
-        df1['Group'] = df1['Tên'].apply(lambda x: str(x).split()[0].upper() if pd.notnull(x) else "")
-        
-        def calc_indiv_diff_dead(row):
-            p_id = row['ID_str']
-            d_s1 = to_int(row[col_dead_s1])
-            d_s2 = to_int(dead_sheet2.get(p_id, d_s1))
-            return d_s2 - d_s1
+    with tab2:
+        v_df = df[['H_RAW', c_name, c_alliance, c_pow, 'TOTAL_KILL'] + dead_cols + ['K_PCT', 'TOTAL_DEAD', 'D_PCT']].copy()
+        v_df.columns = [L['col_rank'], L['col_name'], L['col_alliance'], L['col_power'], L['col_kill']] + dead_cols + [L['col_kpi_kill'], L['col_dead'], L['col_kpi_dead']]
+        
+        format_dict = {
+            L['col_power']: lambda x: f"{int(x):,}".replace(",", "."),
+            L['col_kill']: lambda x: f"{int(x):,}".replace(",", "."),
+            L['col_dead']: lambda x: f"{int(x):,}".replace(",", "."),
+            L['col_kpi_kill']: '{:.1f}%', 
+            L['col_kpi_dead']: '{:.1f}%'
+        }
+        for col in dead_cols:
+            format_dict[col] = lambda x: f"{int(x):,}".replace(",", ".")
 
-        df1['Indiv_Diff_Dead'] = df1.apply(calc_indiv_diff_dead, axis=1)
-        group_kpi_dead_sum = df1.groupby('Group')['Indiv_KPI_Dead'].transform('sum')
-        group_diff_dead_sum = df1.groupby('Group')['Indiv_Diff_Dead'].transform('sum')
-        group_max_power = df1.groupby('Group')['Power_Goc'].transform('max')
+        st.dataframe(v_df.style.format(format_dict), use_container_width=True, height=420)
 
-        processed_list = []
-        for i, row in df1.iterrows():
-            p_id = row['ID_str']
-            is_main = (row['Power_Goc'] == group_max_power[i])
-            final_target_dead = group_kpi_dead_sum[i] if is_main else row['Indiv_KPI_Dead']
-            diff_dead = group_diff_dead_sum[i] if is_main else row['Indiv_Diff_Dead']
-            current_name = name_sheet2.get(p_id, row["Tên"])
-            
-            pow_s1 = to_int(row[find_col(df1, ["sức", "mạnh"]) or "Sức Mạnh"])
-            dead_s1 = to_int(row[col_dead_s1])
-            t4_s1 = to_int(t4_sheet1.get(p_id, 0))
-            t5_s1 = to_int(t5_sheet1.get(p_id, 0))
-            
-            pow_s2 = to_int(pow_sheet2.get(p_id, pow_s1))
-            kill_s2 = to_int(kill_sheet2.get(p_id, 0))
-            dead_s2 = to_int(dead_sheet2.get(p_id, dead_s1))
-            t4_s2 = to_int(t4_sheet2.get(p_id, 0))
-            t5_s2 = to_int(t5_sheet2.get(p_id, 0))
-            
-            diff_t4_score = t4_s2 - t4_s1
-            diff_t5_score = t5_s2 - t5_s1
-            diff_kill_score = diff_t4_score + diff_t5_score
-            diff_pow = pow_s2 - pow_s1
-            
-            final_target_kill = get_kpi_kill_value(row['Power_Goc'])
-            real_pct_kill = round((diff_kill_score / final_target_kill) * 100, 1) if final_target_kill > 0 else 0.0
-            real_pct_dead = round((diff_dead / final_target_dead) * 100, 1) if final_target_dead > 0 else 0.0
-            real_pct_total = round((real_pct_kill + real_pct_dead) / 2, 1)
-            
-            bar_fill_kill = min(100, max(0, int(real_pct_kill)))
-            bar_fill_dead = min(100, max(0, int(real_pct_dead)))
-            bar_fill_total = min(100, max(0, int(real_pct_total)))
-            
-            processed_list.append({
-                "name": current_name, "id": str(row["ID"]), "alliance": row.get("Liên Minh", "FTD"),
-                "diff_pow": diff_pow, "diff_kill": diff_kill_score, "diff_dead": diff_dead,          
-                "total_pow": pow_s2, "total_kill": kill_s2, "total_dead": dead_s2,            
-                "diff_t4": diff_t4_score, "diff_t5": diff_t5_score,
-                "real_pct_kill": real_pct_kill, "real_pct_dead": real_pct_dead, "real_pct_total": real_pct_total,
-                "bar_fill_kill": bar_fill_kill, "bar_fill_dead": bar_fill_dead, "bar_fill_total": bar_fill_total,
-                "final_kpi_dead": final_target_dead, "final_kpi_kill": final_target_kill
-            })
-        return processed_list
+        st.write("---")
+        
+        passed_mask = (df['K_PCT'] > 60) | (df['D_PCT'] >= 100)
+        passed_list = df[passed_mask][c_name].tolist()
+        failed_list = df[~passed_mask][c_name].tolist()
+        
+        list_col1, list_col2 = st.columns(2)
+        
+        with list_col1:
+            st.markdown(f"<h4 style='color:#22d3ee; text-align:center; font-size:16px;'>{L['pass_kpi']} ({len(passed_list)})</h4>", unsafe_allow_html=True)
+            passed_html = "".join([f"<div class='status-item'>🟢 &nbsp; {name}</div>" for name in passed_list])
+            st.markdown(f'<div class="status-list">{passed_html}</div>', unsafe_allow_html=True)
+            
+        with list_col2:
+            st.markdown(f"<h4 style='color:#fb923c; text-align:center; font-size:16px;'>{L['fail_kpi']} ({len(failed_list)})</h4>", unsafe_allow_html=True)
+            failed_html = "".join([f"<div class='status-item'>🔴 &nbsp; {name}</div>" for name in failed_list])
+            st.markdown(f'<div class="status-list">{failed_html}</div>', unsafe_allow_html=True)
 
-    try: final_data = process_cards_data()
-    except Exception as e:
-        st.error(f"{T['sheet_err']} {e}")
-        st.stop()
-
-    cards_html = ""
-    for item in final_data:
-        avatar = f"https://api.dicebear.com/7.x/adventurer/svg?seed={item['name']}"
-        cards_html += f"""
-        <div class="card" data-id="{item['id']}" data-power="{item['diff_pow']}" data-id-attr="{item['id']}" data-kill="{item['diff_kill']}" data-dead="{item['diff_dead']}"
-            onclick="openProfile('{item['name']}','{item['id']}','{item['alliance']}',
-                                 '{item['total_pow']}','{item['total_kill']}','{item['total_dead']}',
-                                 '{item['diff_kill']}','{item['diff_dead']}',
-                                 '{item['final_kpi_kill']}','{item['final_kpi_dead']}',
-                                 '{item['real_pct_kill']}','{item['real_pct_dead']}','{item['real_pct_total']}',
-                                 '{item['bar_fill_kill']}','{item['bar_fill_dead']}','{item['bar_fill_total']}',
-                                 '{item['diff_t4']}','{item['diff_t5']}','{avatar}')">
-            <div class="avatar-wrap"><img src="{avatar}"></div>
-            <div class="card-name">{item['name']}</div>
-            <div class="value">⚡ {item['diff_pow']:,}</div>
-        </div>
-        """
-
-    style_css_content = read_file("style.css")
-    html_template_content = read_file("template.html")
-
-    if html_template_content and style_css_content:
-        final_html = html_template_content.replace("{style_css}", style_css_content).replace("{cards_html}", cards_html)
-        st.markdown('<div style="padding: 0 12px;">', unsafe_allow_html=True)
-        components.html(final_html, height=900, scrolling=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    else:
-        st.error(T["file_err"])
+    # --- 7. HIỂN THỊ BANNER Ở PHẦN DƯỚI CÙNG ---
+    if BANNER_URL:
+        st.markdown(f'<div class="banner-container"><img src="{BANNER_URL}" alt="Footer Banner"></div>', unsafe_allow_html=True)
