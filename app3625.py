@@ -51,7 +51,7 @@ TEXTS = {
         "load_error": "Lỗi tải dữ liệu: "
     },
     "EN": {
-        "header": "KPI SYSTEM - SHARED HOUSE 3956",
+        "header": "KPI SYSTEM - BIKINI BOTTOM 3958",
         "tab1": "👤 DETAILED PROFILE", 
         "tab2": "📊 ALLIANCE OVERVIEW",
         "placeholder": "🔍 Type name or ID to search warrior...",
