@@ -220,8 +220,8 @@ st.markdown("""
 def load_data():
     try:
         sheet_id = "1ylmO5olorIhdgKgejmTRftSLSe6zXXkYn4tYXTCtTSg"
-        gid1 = "1324995926"
-        gid2 = "1374261701"
+        gid1 = "568389539"
+        gid2 = "1577480214"
         
         url1 = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid1}'
         url2 = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid2}'
